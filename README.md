@@ -8,16 +8,16 @@ Ein einfacher Web-Rechner, um basierend auf dem Schienennetz der ÖBB-Infrastruk
 
 ## 🔧 Features
 
-- 📅 **Datumsauswahl** (nur Berechnungen für das aktuelle Steuerjahr erlaubt)
+- 📅 **Datumsauswahl** (aktuell nur Berechnungen für das Jahr 2025 erlaubt)
 - 🚉 **Start- und Zielbahnhof**
 - 📏 **Distanzberechnung** über die öffentliche API der ÖBB
 - 💰 **Kostenberechnung** gemäß AK-Kilometersatz:
   - 0–50 km → €0,50/km  
   - 51–300 km → €0,20/km  
-  - >300 km → €0,10/km  
-  - **Maximalbetrag**: €109
+  - \>300 km → €0,10/km  
+  - **Maximalbetrag**: €109 (Jahr 2025)
 ---
 
 ## 🧪 Live-Demo
 
-👉 [**Demo öffnen**](https://dein-github-nutzername.github.io/oebb-kostenrechner)
+👉 [**Fahrtkostenrechner öffnen**](https://fahrtkosten.at)
