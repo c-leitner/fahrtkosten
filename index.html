@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ÖBB/Westbahn Kilometer- & Fahrtkostenrechner</title>
+  <meta name="description" content="Berechne Entfernung und Fahrtkosten für den Kostenersatz für Mitarbeiter." />
+  <meta name="author" content="c-leitner" />
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css" />
+
+  <style>
+    .result {
+      white-space: pre-wrap;
+      margin-top: 1rem;
+    }
+    .notice {
+      background: #f5f5f5;
+      padding: 1rem;
+      margin-top: 2rem;
+      border-left: 4px solid #3273dc;
+    }
+    footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid #dbdbdb;
+      text-align: center;
+      color: #777;
+    }
+    .button.is-darkblue {
+        background-color: #003366;
+        color: white;
+        border: none;
+    }
+
+    .button.is-darkblue:hover {
+        background-color: #002244;
+    }
+    @media screen and (min-width: 769px) {
+        .section {
+            max-width: 40rem;
+            margin-left: auto;
+            margin-right: auto;
+        }
+    }
+  </style>
+</head>
+<body class="has-background-white-ter" style="min-height: 100vh; display: flex; flex-direction: column;">
+  <section class="section" style="flex: 1;">
+    <div class="container">
+      <h1 class="title">ÖBB/Westbahn Kilometer- & Fahrtkostenrechner</h1>
+
+      <form onsubmit="event.preventDefault(); calculateRoute();">
+        <div class="field">
+          <div class="control">
+            <input class="input" type="date" id="date" placeholder="Datum" />
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="control">
+            <input class="input" list="stations" id="startStation" placeholder="Startbahnhof (z. B. Wien Hbf)" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="control">
+            <input class="input" list="stations" id="endStation" placeholder="Zielbahnhof (z. B. Salzburg Hbf)" autocomplete="off" />
+          </div>
+        </div>
+
+        <datalist id="stations"></datalist>
+
+        <div class="field">
+          <div class="control">
+            <button type="submit" class="button is-darkblue is-fullwidth">Berechnen</button>
+          </div>
+        </div>
+      </form>
+
+      <div class="result has-text-weight-semibold" id="output"></div>
+
+      <div class="has-text-centered mt-4">
+        <button class="button is-small is-light" onclick="toggleNotice()">ℹ️ Hinweis ein-/ausblenden</button>
+      </div>
+
+      <div id="noticeBox" class="notice content mt-3" style="display: none;">
+        <p><strong>Hinweis:</strong> Der Fahrtkostenrechner unterstützt derzeit nur das <strong>Schienennetz der ÖBB-Infrastruktur AG</strong>.</p>
+        <p>Die Kostenberechnung basiert auf dem <a href="https://www.arbeiterkammer.at/beratung/steuerundeinkommen/steuertipps/Dienstreise.html" target="_blank">Dienstreiseratgeber der Arbeiterkammer</a> für das Jahr <strong>2025</strong>.</p>
+        <p><strong>Alle Angaben ohne Gewähr.</strong> Grundlage: <a href="https://wek.oebb.at/" target="_blank">Wegentgeltkalkulator der ÖBB</a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="content has-text-centered">
+      Made with ❤️ by <a href="https://github.com/c-leitner" target="_blank">c-leitner</a> in Vienna
+    </div>
+  </footer>
+
+  <script>
+    let stations = [];
+
+    function normalizeName(name) {
+      return name
+        .toLowerCase()
+        .replace(/\s*\(.*?\)\s*/g, '')
+        .replace(/hauptbahnhof/g, 'hbf')
+        .replace(/\bhbf\b/g, 'hbf')
+        .replace(/[^a-z0-9äöüß ]/g, '')
+        .trim();
+    }
+
+    function formatDateToInput(date) {
+      return date.toISOString().split("T")[0];
+    }
+
+    async function fetchStations(date) {
+      const res = await fetch(`https://wek.oebb.at/api/public/v1/betriebsstellen?datum=${date}`);
+      const data = await res.json();
+      stations = data.filter(st => st.istHalt).map(st => {
+        const cleaned = st.bezeichnung.replace(/\s*\(.*?\)\s*/g, '').trim();
+        return {
+          ...st,
+          cleanedName: cleaned,
+          normalized: normalizeName(cleaned)
+        };
+      });
+      const datalist = document.getElementById("stations");
+      datalist.innerHTML = stations.map(st => `<option value="${st.cleanedName}">`).join("");
+    }
+
+    function findStationByName(input) {
+      const normInput = normalizeName(input);
+      return stations.find(st =>
+        st.normalized === normInput ||
+        st.normalized.includes(normInput) ||
+        normInput.includes(st.normalized)
+      );
+    }
+
+    function calculateCost(km) {
+      if (km <= 50) return km * 0.5;
+      else if (km <= 300) return 50 * 0.5 + (km - 50) * 0.2;
+      else return 50 * 0.5 + 250 * 0.2 + (km - 300) * 0.1;
+    }
+
+    async function calculateRoute() {
+      const dateInput = document.getElementById("date").value;
+      if (!dateInput) {
+        document.getElementById("output").innerText = "Bitte ein gültiges Datum eingeben.";
+        return;
+      }
+      const year = parseInt(dateInput.split("-")[0]);
+      if (year !== 2025) {
+        document.getElementById("output").innerText = "Nur Berechnungen für das Jahr 2025 sind derzeit möglich.";
+        return;
+      }
+
+      const startName = document.getElementById("startStation").value;
+      const endName = document.getElementById("endStation").value;
+      const start = findStationByName(startName);
+      const end = findStationByName(endName);
+
+      if (!start || !end) {
+        document.getElementById("output").innerText = "Bitte gültige Start- und Zielstation eingeben.";
+        return;
+      }
+
+      const url = `https://wek.oebb.at/api/public/v1/route?datum=${dateInput}&startBstId=${start.fgsysId}&startBstDb640=${start.db640}&zielBstId=${end.fgsysId}&zielBstDb640=${end.db640}&entgelt=false`;
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zugParameter: {} })
+      });
+
+      const data = await res.json();
+      const km = data.distanzKmAbStart;
+      let cost = calculateCost(km);
+      let outputText = `Entfernung: ${km.toFixed(2)} km\nKosten: € ${cost.toFixed(2)}`;
+
+      if (cost > 109) {
+        cost = 109;
+        outputText = `Maximalkosten erreicht. Entfernung: ${km.toFixed(2)} km\nKosten: € 109,00`;
+      }
+
+      document.getElementById("output").innerText = outputText;
+    }
+
+    function toggleNotice() {
+      const box = document.getElementById("noticeBox");
+      box.style.display = box.style.display === "none" ? "block" : "none";
+    }
+
+    const today = new Date();
+    const todayStr = formatDateToInput(today);
+    document.getElementById("date").value = todayStr;
+    fetchStations(todayStr);
+
+    document.getElementById("date").addEventListener("change", () => {
+      const date = document.getElementById("date").value;
+      if (date) fetchStations(date);
+    });
+  </script>
+</body>
+</html>
